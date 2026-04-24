@@ -47,7 +47,7 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date To</label>
                 <input type="date" wire:model.live="dateTo"
-                    max="{{ now()->format('Y-m-d') }}"
+                    max="{{ now()->endOfMonth()->format('Y-m-d') }}"
                     min="{{ $dateFrom ?: now()->subMonths(6)->format('Y-m-d') }}"
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
             </div>
@@ -111,13 +111,16 @@
                 </thead>
                 <tbody>
                     @forelse($transactions as $transaction)
+                        @php($isScheduledBudget = $transaction->isScheduledBudgetExpense())
 
                         {{-- ── Normal display row ─────────────────────────────────────── --}}
                         @if($editingId !== $transaction->id)
-                            <tr class="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                            <tr class="border-t border-gray-200 dark:border-gray-700 transition-colors {{ $isScheduledBudget ? 'bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50' }}">
                                 <td class="px-4 py-3">
                                     @if($transaction->type === 'income')
                                         <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">In</span>
+                                    @elseif($isScheduledBudget)
+                                        <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300">Out</span>
                                     @else
                                         <span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">Out</span>
                                     @endif
@@ -125,12 +128,15 @@
                                 <td class="px-4 py-3 text-right font-semibold text-green-600 dark:text-green-400">
                                     {{ $transaction->type === 'income' ? '₱'.number_format($transaction->amount, 2) : '' }}
                                 </td>
-                                <td class="px-4 py-3 text-right font-semibold text-red-600 dark:text-red-400">
+                                <td class="px-4 py-3 text-right font-semibold {{ $isScheduledBudget ? 'text-slate-700 dark:text-slate-200' : 'text-red-600 dark:text-red-400' }}">
                                     {{ $transaction->type === 'expense' ? '₱'.number_format($transaction->amount, 2) : '' }}
                                 </td>
                                 <td class="px-4 py-3">
                                     <button wire:click="toggleExpanded({{ $transaction->id }})" class="text-left w-full">
                                         <span class="text-gray-900 dark:text-gray-100">{{ $transaction->description }}</span>
+                                        @if($isScheduledBudget)
+                                            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200">Future budget entry</span>
+                                        @endif
                                         <span class="ml-1 text-gray-400 text-xs">{{ $expandedId === $transaction->id ? '▲' : '▼' }}</span>
                                     </button>
                                 </td>
@@ -138,22 +144,29 @@
                                     {{ $transaction->transaction_date->format('M d, Y') }}
                                 </td>
                                 <td class="px-4 py-3 text-center">
-                                    <div class="flex justify-center gap-2">
-                                        <button wire:click="startEdit({{ $transaction->id }})"
-                                            class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 text-sm font-medium">
-                                            Edit
+                                    @if($isScheduledBudget)
+                                        <button wire:click="finalizeBudgetTransaction({{ $transaction->id }})"
+                                            class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium transition-colors">
+                                            {{ $this->scheduledActionLabel($transaction) }}
                                         </button>
-                                        <button wire:click="startDelete({{ $transaction->id }})"
-                                            class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 text-sm font-medium">
-                                            Delete
-                                        </button>
-                                    </div>
+                                    @else
+                                        <div class="flex justify-center gap-2">
+                                            <button wire:click="startEdit({{ $transaction->id }})"
+                                                class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 text-sm font-medium">
+                                                Edit
+                                            </button>
+                                            <button wire:click="startDelete({{ $transaction->id }})"
+                                                class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 text-sm font-medium">
+                                                Delete
+                                            </button>
+                                        </div>
+                                    @endif
                                 </td>
                             </tr>
 
                             {{-- Expandable details row --}}
                             @if($expandedId === $transaction->id)
-                                <tr class="bg-blue-50 dark:bg-blue-900/10 border-t border-gray-200 dark:border-gray-700">
+                                <tr class="{{ $isScheduledBudget ? 'bg-slate-200/70 dark:bg-slate-800/90' : 'bg-blue-50 dark:bg-blue-900/10' }} border-t border-gray-200 dark:border-gray-700">
                                     <td colspan="6" class="px-6 py-3">
                                         <div class="flex flex-wrap gap-6 text-sm">
                                             <div>
@@ -164,6 +177,12 @@
                                                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Category</span>
                                                 <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ $transaction->category ?: '—' }}</p>
                                             </div>
+                                            @if($isScheduledBudget && $transaction->budget_due_date)
+                                                <div>
+                                                    <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Budget Due Date</span>
+                                                    <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ $transaction->budget_due_date->format('M d, Y') }}</p>
+                                                </div>
+                                            @endif
                                             @if($transaction->remarks)
                                                 <div>
                                                     <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Remarks</span>

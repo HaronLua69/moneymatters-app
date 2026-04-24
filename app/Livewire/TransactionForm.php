@@ -40,6 +40,7 @@ class TransactionForm extends Component
         Transaction::create([
             'user_id' => auth()->id(),
             'type' => $this->type,
+            'status' => Transaction::STATUS_POSTED,
             'amount' => $this->amount,
             'transaction_date' => $this->transaction_date,
             'description' => $this->description,

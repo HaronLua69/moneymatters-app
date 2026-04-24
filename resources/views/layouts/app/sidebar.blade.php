@@ -15,6 +15,9 @@
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="calculator" :href="route('budgets')" :current="request()->routeIs('budgets*')" wire:navigate>
+                        {{ __('Budget') }}
+                    </flux:sidebar.item>
                     <flux:sidebar.item icon="banknotes" :href="route('transactions')" :current="request()->routeIs('transactions*')" wire:navigate>
                         {{ __('Transactions') }}
                     </flux:sidebar.item>

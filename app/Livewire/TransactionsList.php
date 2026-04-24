@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Actions\Budgets\SyncBudgetTransactions;
 use App\Models\Transaction;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -43,6 +44,7 @@ class TransactionsList extends Component
 
     public function mount(): void
     {
+        app(SyncBudgetTransactions::class)->handle(now(), auth()->id());
         $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
         $this->dateTo   = now()->endOfMonth()->format('Y-m-d');
     }
@@ -115,6 +117,11 @@ class TransactionsList extends Component
     public function startEdit(int $id): void
     {
         $transaction = Transaction::findOrFail($id);
+
+        if ($transaction->isScheduledBudgetExpense()) {
+            return;
+        }
+
         $this->editingId = $id;
         $this->editConfirmShown = false;
         $this->editForm = [
@@ -163,7 +170,30 @@ class TransactionsList extends Component
 
     public function startDelete(int $id): void
     {
+        if (Transaction::findOrFail($id)->isScheduledBudgetExpense()) {
+            return;
+        }
+
         $this->deleteConfirmId = $id;
+    }
+
+    public function finalizeBudgetTransaction(int $id): void
+    {
+        $transaction = Transaction::findOrFail($id);
+
+        if (! $transaction->isScheduledBudgetExpense()) {
+            return;
+        }
+
+        app(SyncBudgetTransactions::class)->finalizeScheduledTransaction($transaction, false, now());
+
+        $this->dispatch(
+            'notify',
+            message: $transaction->category === 'Credit'
+                ? 'Budget entry billed and converted into a posted transaction.'
+                : 'Budget entry marked as paid and converted into a posted transaction.',
+            type: 'success',
+        );
     }
 
     /**
@@ -183,6 +213,7 @@ class TransactionsList extends Component
     public function getTransactionsProperty()
     {
         return Transaction::query()
+            ->with('budget')
             ->when($this->typeFilter !== 'all', fn($q) => $q->where('type', $this->typeFilter))
             ->when($this->categoryFilter,       fn($q) => $q->where('category', $this->categoryFilter))
             ->when($this->dateFrom,             fn($q) => $q->whereDate('transaction_date', '>=', $this->dateFrom))
@@ -204,6 +235,11 @@ class TransactionsList extends Component
             ->when($this->amountMin !== '', fn($q) => $q->where('amount', '>=', $this->amountMin))
             ->when($this->amountMax !== '', fn($q) => $q->where('amount', '<=', $this->amountMax))
             ->sum('amount');
+    }
+
+    public function scheduledActionLabel(Transaction $transaction): string
+    {
+        return $transaction->category === 'Credit' ? 'Bill' : 'Paid';
     }
 
     public function render()

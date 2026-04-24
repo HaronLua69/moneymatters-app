@@ -13,8 +13,8 @@ class Dashboard extends Component
     public function getAllTimeSavings(): float
     {
         $initial  = (float) (auth()->user()->initial_balance ?? 0);
-        $income   = (float) Transaction::where('type', 'income')->sum('amount');
-        $expense  = (float) Transaction::where('type', 'expense')->sum('amount');
+        $income   = (float) Transaction::posted()->where('type', 'income')->sum('amount');
+        $expense  = (float) Transaction::posted()->where('type', 'expense')->sum('amount');
         return $initial + $income - $expense;
     }
 
@@ -49,10 +49,10 @@ class Dashboard extends Component
 
         // Compute running total up to each month-end
         foreach ($months as $m) {
-            $income  = (float) Transaction::where('type', 'income')
+            $income  = (float) Transaction::posted()->where('type', 'income')
                 ->whereDate('transaction_date', '<=', $m['end'])
                 ->sum('amount');
-            $expense = (float) Transaction::where('type', 'expense')
+            $expense = (float) Transaction::posted()->where('type', 'expense')
                 ->whereDate('transaction_date', '<=', $m['end'])
                 ->sum('amount');
 
@@ -74,10 +74,10 @@ class Dashboard extends Component
 
         foreach ($months as $m) {
             $labels[]  = $m['label'];
-            $income[]  = (float) Transaction::where('type', 'income')
+            $income[]  = (float) Transaction::posted()->where('type', 'income')
                 ->whereBetween('transaction_date', [$m['start'], $m['end']])
                 ->sum('amount');
-            $expense[] = (float) Transaction::where('type', 'expense')
+            $expense[] = (float) Transaction::posted()->where('type', 'expense')
                 ->whereBetween('transaction_date', [$m['start'], $m['end']])
                 ->sum('amount');
         }
