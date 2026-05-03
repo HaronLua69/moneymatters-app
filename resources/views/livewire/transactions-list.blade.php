@@ -8,7 +8,12 @@
         </div>
         <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
             <p class="text-sm text-red-600 dark:text-red-400 font-medium">Total Expense</p>
-            <p class="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">-₱{{ number_format($expenseTotal, 2) }}</p>
+            <p class="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
+                -₱{{ number_format($expenseTotal, 2) }}
+                @if($futureExpenseTotal > 0)
+                    <span class="text-lg font-semibold text-red-600 dark:text-red-400">(-₱{{ number_format($futureExpenseTotal, 2) }})</span>
+                @endif
+            </p>
         </div>
     </div>
 

@@ -226,14 +226,29 @@ class TransactionsList extends Component
 
     // ── Totals (always respect active date / category / amount filters) ────────
 
-    private function baseTotal(string $type): float
+    private function totalsQuery()
     {
-        return (float) Transaction::where('type', $type)
+        return Transaction::query()
             ->when($this->categoryFilter,  fn($q) => $q->where('category', $this->categoryFilter))
             ->when($this->dateFrom,        fn($q) => $q->whereDate('transaction_date', '>=', $this->dateFrom))
             ->when($this->dateTo,          fn($q) => $q->whereDate('transaction_date', '<=', $this->dateTo))
             ->when($this->amountMin !== '', fn($q) => $q->where('amount', '>=', $this->amountMin))
-            ->when($this->amountMax !== '', fn($q) => $q->where('amount', '<=', $this->amountMax))
+            ->when($this->amountMax !== '', fn($q) => $q->where('amount', '<=', $this->amountMax));
+    }
+
+    private function postedTotal(string $type): float
+    {
+        return (float) $this->totalsQuery()
+            ->where('type', $type)
+            ->posted()
+            ->sum('amount');
+    }
+
+    private function scheduledExpenseTotal(): float
+    {
+        return (float) $this->totalsQuery()
+            ->where('type', Transaction::TYPE_EXPENSE)
+            ->scheduled()
             ->sum('amount');
     }
 
@@ -246,8 +261,9 @@ class TransactionsList extends Component
     {
         return view('livewire.transactions-list', [
             'transactions' => $this->transactions,
-            'incomeTotal'  => $this->baseTotal('income'),
-            'expenseTotal' => $this->baseTotal('expense'),
+            'incomeTotal' => $this->postedTotal(Transaction::TYPE_INCOME),
+            'expenseTotal' => $this->postedTotal(Transaction::TYPE_EXPENSE),
+            'futureExpenseTotal' => $this->scheduledExpenseTotal(),
         ]);
     }
 }
