@@ -18,6 +18,19 @@
                     <flux:sidebar.item icon="calculator" :href="route('budgets')" :current="request()->routeIs('budgets*')" wire:navigate>
                         {{ __('Budget') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.group
+                        expandable
+                        icon="calculator"
+                        :expanded="request()->routeIs('calculator.*')"
+                        :heading="__('Calculator')"
+                    >
+                        <flux:sidebar.item :href="route('calculator.loan')" :current="request()->routeIs('calculator.loan')" wire:navigate>
+                            {{ __('Loan Calculator') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item :href="route('calculator.what-if')" :current="request()->routeIs('calculator.what-if')" wire:navigate>
+                            {{ __('What-If Calculator') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
                     <flux:sidebar.item icon="banknotes" :href="route('transactions')" :current="request()->routeIs('transactions*')" wire:navigate>
                         {{ __('Transactions') }}
                     </flux:sidebar.item>
