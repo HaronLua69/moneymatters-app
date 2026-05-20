@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\AccountPlatform;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,7 @@ class Transaction extends Model
         'description',
         'category',
         'payment_method',
+        'account_id',
         'remarks',
     ];
 
@@ -63,6 +65,16 @@ class Transaction extends Model
     public function budget(): BelongsTo
     {
         return $this->belongsTo(Budget::class, 'source_budget_id');
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
+    public function accountCategory(): ?string
+    {
+        return AccountPlatform::normalizeAccountCategory($this->category);
     }
 
     public function isScheduledBudgetExpense(): bool

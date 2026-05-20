@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Account;
+use App\Support\AccountPlatform;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -74,9 +76,34 @@ class ImportTransactionsCsv extends Command
                 continue;
             }
 
-            $category      = isset($cols[4]) ? trim($cols[4]) : null;
-            $paymentMethod = isset($cols[5]) ? trim($cols[5]) : null;
+            $rawCategory = isset($cols[4]) ? trim($cols[4]) : null;
+            $rawPaymentMethod = isset($cols[5]) ? trim($cols[5]) : null;
+            $category = AccountPlatform::normalizeTransactionCategoryForPlatform($rawCategory, $rawPaymentMethod);
+            $paymentMethod = AccountPlatform::normalizePlatformNameForCategory($category, $rawPaymentMethod);
             $remarks       = isset($cols[6]) ? trim($cols[6]) : null;
+
+            if ($paymentMethod === null && $category === AccountPlatform::TRANSACTION_CATEGORY_CASH) {
+                $paymentMethod = AccountPlatform::CASH_IN_HAND;
+            }
+
+            $accountId = null;
+            $accountCategory = AccountPlatform::normalizeAccountCategoryForPlatform($category, $rawPaymentMethod);
+
+            if ($paymentMethod && $accountCategory && ! AccountPlatform::isCashInHand($paymentMethod)) {
+                $accountId = Account::query()
+                    ->withoutGlobalScope('user')
+                    ->firstOrCreate(
+                        [
+                            'user_id' => (int) $userId,
+                            'category' => $accountCategory,
+                            'name' => $paymentMethod,
+                        ],
+                        [
+                            'description' => null,
+                        ],
+                    )
+                    ->id;
+            }
 
             DB::table('transactions')->insert([
                 'user_id'          => $userId,
@@ -86,6 +113,7 @@ class ImportTransactionsCsv extends Command
                 'transaction_date' => $date,
                 'category'         => $category ?: null,
                 'payment_method'   => $paymentMethod ?: null,
+                'account_id'       => $accountId,
                 'remarks'          => $remarks ?: null,
                 'created_at'       => now(),
                 'updated_at'       => now(),

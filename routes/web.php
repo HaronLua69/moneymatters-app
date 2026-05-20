@@ -6,6 +6,7 @@ Route::view('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
+    Route::view('accounts', 'pages.accounts')->name('accounts');
     Route::view('budgets', 'pages.budgets')->name('budgets');
     Route::view('transactions', 'pages.transactions')->name('transactions');
     Route::view('transactions/add', 'pages.add-transaction')->name('transactions.add');

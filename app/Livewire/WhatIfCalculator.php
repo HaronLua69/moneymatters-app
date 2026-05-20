@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Actions\Calculators\FinancialScenarioCalculator;
+use App\Support\PaymentAccountResolver;
 use App\Models\Transaction;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -36,9 +37,16 @@ class WhatIfCalculator extends Component
             'form.transaction_date' => ['required', 'date'],
             'form.description' => ['required', 'string', 'max:255'],
             'form.category' => ['required', Rule::in(self::CATEGORY_OPTIONS)],
-            'form.payment_method' => ['required', 'string', 'max:255'],
+            'form.payment_option' => ['required'],
             'form.remarks' => ['nullable', 'string', 'max:500'],
         ];
+    }
+
+    public function updated($property): void
+    {
+        if ($property === 'form.category') {
+            $this->form['payment_option'] = '';
+        }
     }
 
     public function updatedForecastMode(): void
@@ -59,9 +67,16 @@ class WhatIfCalculator extends Component
     public function saveScenario(): void
     {
         $validated = $this->validate()['form'];
+        $resolvedPayment = PaymentAccountResolver::resolveForUser(
+            auth()->id(),
+            $validated['category'] ?? null,
+            $validated['payment_option'] ?? null,
+            'form.payment_option',
+        );
+        unset($validated['payment_option']);
 
         if ($this->editingId !== null) {
-            $this->scenarioTransactions = array_map(function (array $transaction) use ($validated) {
+            $this->scenarioTransactions = array_map(function (array $transaction) use ($validated, $resolvedPayment) {
                 if ($transaction['id'] !== $this->editingId) {
                     return $transaction;
                 }
@@ -69,6 +84,8 @@ class WhatIfCalculator extends Component
                 return [
                     ...$transaction,
                     ...$validated,
+                    'account_id' => $resolvedPayment['account_id'],
+                    'payment_method' => $resolvedPayment['payment_name'],
                     'amount' => round((float) $validated['amount'], 2),
                     'remarks' => $validated['remarks'] ?: '',
                 ];
@@ -79,6 +96,8 @@ class WhatIfCalculator extends Component
             $this->scenarioTransactions[] = [
                 'id' => $this->nextScenarioId(),
                 ...$validated,
+                'account_id' => $resolvedPayment['account_id'],
+                'payment_method' => $resolvedPayment['payment_name'],
                 'amount' => round((float) $validated['amount'], 2),
                 'remarks' => $validated['remarks'] ?: '',
             ];
@@ -106,7 +125,7 @@ class WhatIfCalculator extends Component
             'transaction_date' => $transaction['transaction_date'],
             'description' => $transaction['description'],
             'category' => $transaction['category'],
-            'payment_method' => $transaction['payment_method'],
+            'payment_option' => PaymentAccountResolver::selectedOption($transaction['account_id'] ?? null, $transaction['payment_method'] ?? null),
             'remarks' => $transaction['remarks'],
         ];
     }
@@ -166,7 +185,19 @@ class WhatIfCalculator extends Component
     {
         return view('livewire.what-if-calculator', [
             'categoryOptions' => self::CATEGORY_OPTIONS,
+            'paymentOptions' => auth()->check()
+                ? PaymentAccountResolver::optionsForUser(auth()->id(), $this->form['category'] ?? null)
+                : collect(),
         ]);
+    }
+
+    public function paymentOptionsFor(?string $category)
+    {
+        if (! auth()->check()) {
+            return collect();
+        }
+
+        return PaymentAccountResolver::optionsForUser(auth()->id(), $category);
     }
 
     private function refreshSummary(): void
@@ -204,7 +235,7 @@ class WhatIfCalculator extends Component
             'transaction_date' => now()->toDateString(),
             'description' => '',
             'category' => 'Cash',
-            'payment_method' => '',
+            'payment_option' => '',
             'remarks' => '',
         ];
     }

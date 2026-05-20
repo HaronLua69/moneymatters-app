@@ -4,6 +4,8 @@ namespace App\Livewire;
 
 use App\Actions\Budgets\SyncBudgetTransactions;
 use App\Models\Transaction;
+use App\Support\AccountPlatform;
+use App\Support\PaymentAccountResolver;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Carbon\Carbon;
@@ -37,7 +39,7 @@ class TransactionsList extends Component
             'editForm.transaction_date' => 'required|date',
             'editForm.description'      => 'required|string|max:255',
             'editForm.category'         => 'required|in:Cash,Credit,E-Wallet',
-            'editForm.payment_method'   => 'required|string|max:255',
+            'editForm.payment_option'   => 'required',
             'editForm.remarks'          => 'nullable|string|max:500',
         ];
     }
@@ -101,6 +103,13 @@ class TransactionsList extends Component
     public function updatedTypeFilter(): void   { $this->resetPage(); }
     public function updatedCategoryFilter(): void { $this->resetPage(); }
 
+    public function updated($property): void
+    {
+        if ($property === 'editForm.category') {
+            $this->editForm['payment_option'] = '';
+        }
+    }
+
     public function resetFilters(): void
     {
         $this->categoryFilter = '';
@@ -129,7 +138,7 @@ class TransactionsList extends Component
             'transaction_date' => $transaction->transaction_date->format('Y-m-d'),
             'description'      => $transaction->description,
             'category'         => $transaction->category ?? '',
-            'payment_method'   => $transaction->payment_method ?? '',
+            'payment_option'   => PaymentAccountResolver::selectedOption($transaction->account_id, $transaction->payment_method),
             'remarks'          => $transaction->remarks ?? '',
         ];
     }
@@ -138,6 +147,12 @@ class TransactionsList extends Component
     public function saveEdit(): void
     {
         $this->validate();
+        PaymentAccountResolver::resolveForUser(
+            auth()->id(),
+            $this->editForm['category'] ?? null,
+            $this->editForm['payment_option'] ?? null,
+            'editForm.payment_option',
+        );
         $this->editConfirmShown = true;
     }
 
@@ -147,7 +162,22 @@ class TransactionsList extends Component
     public function confirmEdit(string $action): void
     {
         if ($action === 'yes') {
-            Transaction::findOrFail($this->editingId)->update($this->editForm);
+            $resolvedPayment = PaymentAccountResolver::resolveForUser(
+                auth()->id(),
+                $this->editForm['category'] ?? null,
+                $this->editForm['payment_option'] ?? null,
+                'editForm.payment_option',
+            );
+
+            Transaction::findOrFail($this->editingId)->update([
+                'amount' => $this->editForm['amount'],
+                'transaction_date' => $this->editForm['transaction_date'],
+                'description' => $this->editForm['description'],
+                'category' => AccountPlatform::normalizeTransactionCategory($this->editForm['category'] ?? null),
+                'payment_method' => $resolvedPayment['payment_name'],
+                'account_id' => $resolvedPayment['account_id'],
+                'remarks' => $this->editForm['remarks'] ?? null,
+            ]);
             $this->cancelEdit();
             $this->dispatch('notify', message: 'Transaction updated successfully.', type: 'success');
         } elseif ($action === 'no') {
@@ -213,7 +243,7 @@ class TransactionsList extends Component
     public function getTransactionsProperty()
     {
         return Transaction::query()
-            ->with('budget')
+            ->with(['budget', 'account'])
             ->when($this->typeFilter !== 'all', fn($q) => $q->where('type', $this->typeFilter))
             ->when($this->categoryFilter,       fn($q) => $q->where('category', $this->categoryFilter))
             ->when($this->dateFrom,             fn($q) => $q->whereDate('transaction_date', '>=', $this->dateFrom))
@@ -255,6 +285,15 @@ class TransactionsList extends Component
     public function scheduledActionLabel(Transaction $transaction): string
     {
         return $transaction->category === 'Credit' ? 'Bill' : 'Paid';
+    }
+
+    public function paymentOptionsFor(?string $category)
+    {
+        if (! auth()->check()) {
+            return collect();
+        }
+
+        return PaymentAccountResolver::optionsForUser(auth()->id(), $category);
     }
 
     public function render()

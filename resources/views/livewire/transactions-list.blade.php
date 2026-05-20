@@ -176,7 +176,7 @@
                                         <div class="flex flex-wrap gap-6 text-sm">
                                             <div>
                                                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Payment Platform</span>
-                                                <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ $transaction->payment_method ?: '—' }}</p>
+                                                <p class="text-gray-900 dark:text-gray-100 mt-0.5">{{ $transaction->account?->name ?? $transaction->payment_method ?: '—' }}</p>
                                             </div>
                                             <div>
                                                 <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Category</span>
@@ -239,7 +239,7 @@
                                     <td class="px-4 pb-3"></td>
                                     <td colspan="2" class="px-4 pb-3">
                                         <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Category</label>
-                                        <select wire:model="editForm.category"
+                                        <select wire:model.live="editForm.category"
                                             class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500">
                                             <option value="">-- Select --</option>
                                             <option value="Cash">Cash</option>
@@ -250,9 +250,15 @@
                                     </td>
                                     <td class="px-4 pb-3">
                                         <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Payment Platform</label>
-                                        <input type="text" wire:model="editForm.payment_method" maxlength="255"
+                                        <select wire:key="transaction-row-payment-option-{{ $editingId }}-{{ $editForm['category'] ?? 'none' }}"
+                                            wire:model.live="editForm.payment_option"
                                             class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500">
-                                        @error('editForm.payment_method') <p class="text-xs text-red-600 mt-0.5">{{ $message }}</p> @enderror
+                                            <option value="">-- Select --</option>
+                                            @foreach($this->paymentOptionsFor($editForm['category'] ?? null) as $option)
+                                                <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                                            @endforeach
+                                        </select>
+                                        @error('editForm.payment_option') <p class="text-xs text-red-600 mt-0.5">{{ $message }}</p> @enderror
                                     </td>
                                     <td colspan="2" class="px-4 pb-3">
                                         <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Remarks</label>

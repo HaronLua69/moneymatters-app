@@ -126,7 +126,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
-                        <select wire:model="form.category" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                        <select wire:model.live="form.category" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
                             @foreach($categoryOptions as $categoryOption)
                                 <option value="{{ $categoryOption }}">{{ $categoryOption }}</option>
                             @endforeach
@@ -135,8 +135,13 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Payment Platform</label>
-                        <input type="text" wire:model="form.payment_method" placeholder="e.g., GCash, Payroll Account" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
-                        @error('form.payment_method') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                        <select wire:key="what-if-payment-option-{{ $form['category'] ?? 'none' }}-{{ $editingId ?? 'new' }}" wire:model.live="form.payment_option" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select a payment platform</option>
+                            @foreach($paymentOptions as $option)
+                                <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+                            @endforeach
+                        </select>
+                        @error('form.payment_option') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                     </div>
                 </div>
 

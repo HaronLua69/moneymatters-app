@@ -4,6 +4,8 @@ namespace App\Livewire;
 
 use App\Actions\Budgets\SyncBudgetTransactions;
 use App\Models\Budget;
+use App\Support\AccountPlatform;
+use App\Support\PaymentAccountResolver;
 use Livewire\Component;
 use Illuminate\Validation\Rule;
 
@@ -30,15 +32,28 @@ class BudgetManager extends Component
             'form.annual_billing_month' => ['nullable', 'integer', 'between:1,12'],
             'form.annual_billing_day' => ['nullable', 'integer', 'between:1,31'],
             'form.category' => ['required', Rule::in(Budget::categoryOptions())],
-            'form.payment_platform' => ['required', 'string', 'max:255'],
+            'form.payment_option' => ['required'],
             'form.description' => ['nullable', 'string', 'max:1000'],
         ];
+    }
+
+    public function updated($property): void
+    {
+        if ($property === 'form.category') {
+            $this->form['payment_option'] = '';
+        }
     }
 
     public function save(): void
     {
         $validated = $this->validate()['form'];
-        $payload = $this->normalizePayload($validated);
+        $resolvedPayment = PaymentAccountResolver::resolveForUser(
+            auth()->id(),
+            $validated['category'] ?? null,
+            $validated['payment_option'] ?? null,
+            'form.payment_option',
+        );
+        $payload = $this->normalizePayload($validated, $resolvedPayment);
 
         if ($this->editingId) {
             $budget = Budget::findOrFail($this->editingId);
@@ -72,7 +87,7 @@ class BudgetManager extends Component
             'annual_billing_month' => $budget->annual_billing_month,
             'annual_billing_day' => $budget->annual_billing_day,
             'category' => $budget->category,
-            'payment_platform' => $budget->payment_platform,
+            'payment_option' => PaymentAccountResolver::selectedOption($budget->account_id, $budget->payment_platform),
             'description' => $budget->description,
         ];
     }
@@ -127,6 +142,7 @@ class BudgetManager extends Component
     public function getBudgetsProperty()
     {
         return Budget::query()
+            ->with('account')
             ->orderByRaw("case when term = ? then 0 when term = ? then 1 else 2 end", [Budget::TERM_MONTHLY, Budget::TERM_ANNUAL])
             ->orderByRaw("case when term = ? then coalesce(billing_day, 31) else coalesce(annual_billing_month, 12) * 100 + coalesce(annual_billing_day, 31) end asc", [Budget::TERM_MONTHLY])
             ->orderByDesc('amount')
@@ -145,8 +161,21 @@ class BudgetManager extends Component
         ]);
     }
 
-    private function normalizePayload(array $validated): array
+    public function paymentOptionsFor(?string $category)
     {
+        if (! auth()->check()) {
+            return collect();
+        }
+
+        return PaymentAccountResolver::optionsForUser(auth()->id(), $category);
+    }
+
+    private function normalizePayload(array $validated, array $resolvedPayment): array
+    {
+        $validated['category'] = AccountPlatform::normalizeTransactionCategory($validated['category'] ?? null);
+        $validated['payment_platform'] = $resolvedPayment['payment_name'];
+        $validated['account_id'] = $resolvedPayment['account_id'];
+        unset($validated['payment_option']);
         $validated['description'] = $validated['description'] ?: null;
 
         if ($validated['term'] === Budget::TERM_MONTHLY) {
@@ -172,7 +201,7 @@ class BudgetManager extends Component
             'annual_billing_month' => null,
             'annual_billing_day' => null,
             'category' => Budget::CATEGORY_CASH,
-            'payment_platform' => '',
+            'payment_option' => '',
             'description' => '',
         ];
     }

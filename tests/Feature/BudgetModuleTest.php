@@ -6,6 +6,7 @@ use App\Actions\Budgets\SyncBudgetTransactions;
 use App\Livewire\BudgetManager;
 use App\Livewire\Reports;
 use App\Livewire\TransactionsList;
+use App\Models\Account;
 use App\Models\Budget;
 use App\Models\Transaction;
 use App\Models\User;
@@ -39,6 +40,12 @@ class BudgetModuleTest extends TestCase
     {
         Carbon::setTestNow('2026-04-24 09:00:00');
         $user = User::factory()->create();
+        $account = Account::create([
+            'user_id' => $user->id,
+            'name' => 'Maya Black Credit Card',
+            'category' => 'Credit Card',
+            'description' => null,
+        ]);
 
         $this->actingAs($user);
 
@@ -49,7 +56,7 @@ class BudgetModuleTest extends TestCase
             ->set('form.term', Budget::TERM_MONTHLY)
             ->set('form.billing_day', 25)
             ->set('form.category', Budget::CATEGORY_CREDIT)
-            ->set('form.payment_platform', 'Maya Black CC')
+            ->set('form.payment_option', (string) $account->id)
             ->set('form.description', 'Home internet subscription')
             ->call('save');
 
@@ -65,7 +72,8 @@ class BudgetModuleTest extends TestCase
             'budget_due_date' => '2026-04-25',
             'description' => 'Internet Plan',
             'category' => Budget::CATEGORY_CREDIT,
-            'payment_method' => 'Maya Black CC',
+            'payment_method' => 'Maya Black Credit Card',
+            'account_id' => $account->id,
         ]);
     }
 
@@ -73,6 +81,12 @@ class BudgetModuleTest extends TestCase
     {
         Carbon::setTestNow('2026-04-24 09:00:00');
         $user = User::factory()->create();
+        $account = Account::create([
+            'user_id' => $user->id,
+            'name' => 'Metrobank Savings',
+            'category' => 'Cash',
+            'description' => null,
+        ]);
         $budget = Budget::create([
             'user_id' => $user->id,
             'name' => 'Rent',
@@ -82,6 +96,7 @@ class BudgetModuleTest extends TestCase
             'billing_day' => 26,
             'category' => Budget::CATEGORY_CASH,
             'payment_platform' => 'Cash in Hand',
+            'account_id' => null,
             'description' => 'Apartment rent',
             'is_active' => true,
         ]);
@@ -93,7 +108,7 @@ class BudgetModuleTest extends TestCase
             ->call('startEdit', $budget->id)
             ->set('form.amount', '12500.00')
             ->set('form.billing_day', 28)
-            ->set('form.payment_platform', 'Metrobank Savings')
+            ->set('form.payment_option', (string) $account->id)
             ->call('save');
 
         $this->assertDatabaseHas('transactions', [
@@ -102,6 +117,7 @@ class BudgetModuleTest extends TestCase
             'amount' => '12500.00',
             'transaction_date' => '2026-04-28',
             'payment_method' => 'Metrobank Savings',
+            'account_id' => $account->id,
         ]);
     }
 
@@ -109,6 +125,12 @@ class BudgetModuleTest extends TestCase
     {
         Carbon::setTestNow('2026-04-24 09:00:00');
         $user = User::factory()->create(['initial_balance' => 0]);
+        $account = Account::create([
+            'user_id' => $user->id,
+            'name' => 'Maya Black Credit Card',
+            'category' => 'Credit Card',
+            'description' => null,
+        ]);
         $budget = Budget::create([
             'user_id' => $user->id,
             'name' => 'Streaming Bundle',
@@ -117,7 +139,8 @@ class BudgetModuleTest extends TestCase
             'term' => Budget::TERM_MONTHLY,
             'billing_day' => 29,
             'category' => Budget::CATEGORY_CREDIT,
-            'payment_platform' => 'Maya Black CC',
+            'payment_platform' => 'Maya Black Credit Card',
+            'account_id' => $account->id,
             'description' => 'Video and music subscriptions',
             'is_active' => true,
         ]);
@@ -146,6 +169,12 @@ class BudgetModuleTest extends TestCase
     {
         Carbon::setTestNow('2026-04-01 08:00:00');
         $user = User::factory()->create();
+        $account = Account::create([
+            'user_id' => $user->id,
+            'name' => 'GCash',
+            'category' => 'E-Wallet',
+            'description' => null,
+        ]);
         $budget = Budget::create([
             'user_id' => $user->id,
             'name' => 'Electric Bill',
@@ -155,6 +184,7 @@ class BudgetModuleTest extends TestCase
             'billing_day' => 10,
             'category' => Budget::CATEGORY_E_WALLET,
             'payment_platform' => 'GCash',
+            'account_id' => $account->id,
             'description' => 'Meralco payment',
             'is_active' => true,
         ]);

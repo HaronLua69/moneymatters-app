@@ -81,7 +81,8 @@ class SyncBudgetTransactions
                 'budget_due_date' => $dueDate->toDateString(),
                 'description' => $budget->name,
                 'category' => $budget->category,
-                'payment_method' => $budget->payment_platform,
+                'account_id' => $budget->account_id,
+                'payment_method' => $budget->account?->name ?? $budget->payment_platform,
                 'remarks' => $budget->description,
             ],
         );

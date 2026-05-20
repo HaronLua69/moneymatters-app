@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Livewire\LoanCalculator;
 use App\Livewire\WhatIfCalculator;
+use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\PaymentAccountResolver;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -78,6 +80,12 @@ class CalculatorModuleTest extends TestCase
     {
         Carbon::setTestNow('2026-05-07 09:00:00');
         $user = User::factory()->create(['initial_balance' => 1000]);
+        $gcashAccount = Account::create([
+            'user_id' => $user->id,
+            'name' => 'GCash',
+            'category' => 'E-Wallet',
+            'description' => null,
+        ]);
 
         Transaction::create([
             'user_id' => $user->id,
@@ -125,10 +133,11 @@ class CalculatorModuleTest extends TestCase
             ->set('form.transaction_date', '2026-05-10')
             ->set('form.description', 'Dining Out')
             ->set('form.category', 'Cash')
-            ->set('form.payment_method', 'Cash Wallet')
+            ->set('form.payment_option', PaymentAccountResolver::CASH_IN_HAND_OPTION)
             ->set('form.remarks', 'Weekend spend')
             ->call('saveScenario')
             ->assertSee('Dining Out')
+            ->assertSee('Cash in Hand')
             ->assertSee('₱1,300.00')
             ->assertSee('₱1,250.00')
             ->assertSee('₱1,200.00')
@@ -145,8 +154,9 @@ class CalculatorModuleTest extends TestCase
             ->set('form.transaction_date', '2026-05-12')
             ->set('form.description', 'Freelance Job')
             ->set('form.category', 'E-Wallet')
-            ->set('form.payment_method', 'GCash')
+            ->set('form.payment_option', (string) $gcashAccount->id)
             ->call('saveScenario')
+            ->assertSee('GCash')
             ->call('requestClearAll')
             ->call('confirmClearAll', 'yes')
             ->assertSee('No What-If transactions added yet.');

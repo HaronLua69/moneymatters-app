@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use App\Support\AccountPlatform;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,9 +21,9 @@ class Budget extends Model
     public const TERM_MONTHLY = 'monthly';
     public const TERM_ANNUAL = 'annual';
 
-    public const CATEGORY_CASH = 'Cash';
-    public const CATEGORY_CREDIT = 'Credit';
-    public const CATEGORY_E_WALLET = 'E-Wallet';
+    public const CATEGORY_CASH = AccountPlatform::TRANSACTION_CATEGORY_CASH;
+    public const CATEGORY_CREDIT = AccountPlatform::TRANSACTION_CATEGORY_CREDIT;
+    public const CATEGORY_E_WALLET = AccountPlatform::TRANSACTION_CATEGORY_E_WALLET;
 
     protected $fillable = [
         'user_id',
@@ -35,6 +36,7 @@ class Budget extends Model
         'annual_billing_day',
         'category',
         'payment_platform',
+        'account_id',
         'description',
         'is_active',
     ];
@@ -84,6 +86,11 @@ class Budget extends Model
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class, 'source_budget_id');
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 
     public function isMonthly(): bool
